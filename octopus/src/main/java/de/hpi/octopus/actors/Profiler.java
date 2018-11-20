@@ -1,5 +1,6 @@
 package de.hpi.octopus.actors;
 
+import java.util.List;
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -32,7 +33,6 @@ public class Profiler extends AbstractActor {
 	////////////////////
 	// Actor Messages //
 	////////////////////
-	
 	@Data @AllArgsConstructor
 	public static class RegistrationMessage implements Serializable {
 		private static final long serialVersionUID = 4545299661052078209L;
@@ -52,7 +52,25 @@ public class Profiler extends AbstractActor {
 		private CompletionMessage() {}
 		private status result;
 	}
-	
+
+	@Data @AllArgsConstructor @SuppressWarnings("unused")
+	public static class GeneAnalysisCompletionMessage extends CompletionMessage implements Serializable {
+		private static final long serialVersionUID = -6823011111281387872L;
+		private GeneAnalysisCompletionMessage() {}
+		private List<Integer> partners;
+	}
+	@Data @AllArgsConstructor @SuppressWarnings("unused")
+	public static class PasswordCrackingCompletionMessage extends CompletionMessage implements Serializable {
+		private static final long serialVersionUID = -6823011111281387872L;
+		private PasswordCrackingCompletionMessage() {}
+		private  List<Integer> passwords;
+	}
+	@Data @AllArgsConstructor @SuppressWarnings("unused")
+	public static class LinearCombinationCompletionMessage extends CompletionMessage implements Serializable {
+		private static final long serialVersionUID = -6823011111281387872L;
+		private LinearCombinationCompletionMessage() {}
+		private  int [] prefixes;
+	}
 	/////////////////
 	// Actor State //
 	/////////////////
