@@ -2,7 +2,6 @@ package de.hpi.octopus.actors;
 
 import java.util.List;
 import java.io.Serializable;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
@@ -17,6 +16,7 @@ import akka.event.LoggingAdapter;
 import de.hpi.octopus.actors.Worker.WorkMessage;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 public class Profiler extends AbstractActor {
 
@@ -38,38 +38,115 @@ public class Profiler extends AbstractActor {
 		private static final long serialVersionUID = 4545299661052078209L;
 	}
 
-	@Data @AllArgsConstructor @SuppressWarnings("unused")
-	public static class TaskMessage implements Serializable {
+	@Data @SuppressWarnings("unused") @NoArgsConstructor
+	public static abstract class TaskMessage implements Serializable {
 		private static final long serialVersionUID = -8330958742629706627L;
-		private TaskMessage() {}
-		private int attributes;
-	}
-	
-	@Data @AllArgsConstructor @SuppressWarnings("unused")
-	public static class CompletionMessage implements Serializable {
-		private static final long serialVersionUID = -6823011111281387872L;
-		public enum status {MINIMAL, EXTENDABLE, FALSE, FAILED}
-		private CompletionMessage() {}
-		private status result;
 	}
 
-	@Data @AllArgsConstructor @SuppressWarnings("unused")
+
+	@Data
+	@AllArgsConstructor
+	@SuppressWarnings("unused")
+	@NoArgsConstructor
+	public static class PasswordCrackingTaskMessage extends TaskMessage implements Serializable {
+		private static final long serialVersionUID = -7643194361868862395L;
+		private final List<String> secrets;
+	}
+
+	@Data
+	@AllArgsConstructor
+	@SuppressWarnings("unused")
+	@NoArgsConstructor
+	public static class GeneAnalysisTaskMessage extends TaskMessage implements Serializable {
+		private static final long serialVersionUID = -7643194361868862395L;
+		private final List<String> sequences;
+	}
+
+	@Data
+	@AllArgsConstructor
+	@SuppressWarnings("unused")
+	@NoArgsConstructor
+	public static class LinearCombinationTaskMessage extends TaskMessage implements Serializable {
+		private static final long serialVersionUID = -7643194361868862395L;
+		private final List<Integer> numbers;
+	}
+	@Data
+	@AllArgsConstructor
+	@SuppressWarnings("unused")
+	@NoArgsConstructor
+	public static class HashMiningTaskMessage extends TaskMessage implements Serializable {
+		private static final long serialVersionUID = -7643194361868862395L;
+		private final List<Integer> partners, prefixes;
+		private final int prefixLength;
+	}
+
+
+
+	
+	@Data @AllArgsConstructor @SuppressWarnings("unused") @NoArgsConstructor
+	public static abstract class CompletionMessage implements Serializable {
+		private static final long serialVersionUID = -6823011111281387872L;
+		public enum Status {MINIMAL, EXTENDABLE, FALSE, FAILED}
+		private final Status result;
+	}
+
+	@Data  @SuppressWarnings("unused") 
 	public static class GeneAnalysisCompletionMessage extends CompletionMessage implements Serializable {
 		private static final long serialVersionUID = -6823011111281387872L;
-		private GeneAnalysisCompletionMessage() {}
-		private List<Integer> partners;
+		private final List<Integer> partners;
+
+		public GeneAnalysisCompletionMessage(Status result, List<Integer> partners) {
+			super(result);
+			this.partners = partners;
+		}
+		public GeneAnalysisCompletionMessage(){super();}
 	}
-	@Data @AllArgsConstructor @SuppressWarnings("unused")
+
+
+	@Data  @SuppressWarnings("unused")
 	public static class PasswordCrackingCompletionMessage extends CompletionMessage implements Serializable {
 		private static final long serialVersionUID = -6823011111281387872L;
-		private PasswordCrackingCompletionMessage() {}
-		private  List<Integer> passwords;
+		private final List<Integer> passwords;
+		public PasswordCrackingCompletionMessage(Status result, List<Integer> passwords) {
+			super(result);
+			this.passwords = passwords;
+		}
+		public PasswordCrackingCompletionMessage()
+		{
+			super();		
+		}
 	}
-	@Data @AllArgsConstructor @SuppressWarnings("unused")
+
+
+	@Data @SuppressWarnings("unused") 
 	public static class LinearCombinationCompletionMessage extends CompletionMessage implements Serializable {
 		private static final long serialVersionUID = -6823011111281387872L;
-		private LinearCombinationCompletionMessage() {}
-		private  int [] prefixes;
+		private final int [] prefixes;
+		public LinearCombinationCompletionMessage(Status result, int [] prefixes) {
+			super(result);
+			this.prefixes = prefixes;
+		}
+		public LinearCombinationCompletionMessage()
+		{
+			super();
+		}
+	}
+
+
+
+	@Data  @SuppressWarnings("unused") 
+	public static class HashMiningCompletionMessage extends CompletionMessage implements Serializable {
+		private static final long serialVersionUID = -6823011111281387872L;
+		private final List<String> hashes;
+
+		public HashMiningCompletionMessage(Status status, List<String> hashes) {
+			super(status);
+			this.hashes = hashes;
+		}
+		public HashMiningCompletionMessage()
+		{
+			super();
+		}
 	}
 	/////////////////
 	// Actor State //
@@ -92,7 +169,8 @@ public class Profiler extends AbstractActor {
 		return receiveBuilder()
 				.match(RegistrationMessage.class, this::handle)
 				.match(Terminated.class, this::handle)
-				.match(TaskMessage.class, this::handle)
+				.match(PasswordCrackingTaskMessage.class, this::handle)
+				.match(PasswordCrackingCompletionMessage.class, this::handle)
 				.match(CompletionMessage.class, this::handle)
 				.matchAny(object -> this.log.info("Received unknown message: \"{}\"", object.toString()))
 				.build();
@@ -117,19 +195,23 @@ public class Profiler extends AbstractActor {
 		this.log.info("Unregistered {}", message.getActor());
 	}
 	
-	private void handle(TaskMessage message) {
+	private void handle(PasswordCrackingTaskMessage message) {
 		if (this.task != null)
 			this.log.error("The profiler actor can process only one task in its current implementation!");
 		
 		this.task = message;
-		this.assign(new WorkMessage(new int[0], new int[0]));
+		this.assign(new  Worker.PasswordCrackingWorkMessage(message.secrets,0,1_000_000));
+	}
+	private void handle(PasswordCrackingCompletionMessage message) {
+		this.log.info("Completed: [{}]", message.getPasswords());
+		this.handle((CompletionMessage) message);
 	}
 	
 	private void handle(CompletionMessage message) {
 		ActorRef worker = this.sender();
 		WorkMessage work = this.busyWorkers.remove(worker);
 
-		this.log.info("Completed: [{},{}]", Arrays.toString(work.getX()), Arrays.toString(work.getY()));
+		this.log.info("Completed: [{},{}]", work.getRangeStart(), work.getRangeEnd());
 		
 		switch (message.getResult()) {
 			case MINIMAL: 
@@ -174,23 +256,23 @@ public class Profiler extends AbstractActor {
 	}
 	
 	private void report(WorkMessage work) {
-		this.log.info("UCC: {}", Arrays.toString(work.getX()));
+		//this.log.info("UCC: {}", Arrays.toString(work.getX()));
 	}
 
 	private void split(WorkMessage work) {
-		int[] x = work.getX();
-		int[] y = work.getY();
+		// int[] x = work.getX();
+		// int[] y = work.getY();
 		
-		int next = x.length + y.length;
+		// int next = x.length + y.length;
 		
-		if (next < this.task.getAttributes() - 1) {
-			int[] xNew = Arrays.copyOf(x, x.length + 1);
-			xNew[x.length] = next;
-			this.assign(new WorkMessage(xNew, y));
+		// if (next < this.task.getAttributes() - 1) {
+		// 	int[] xNew = Arrays.copyOf(x, x.length + 1);
+		// 	xNew[x.length] = next;
+		// 	this.assign(new WorkMessage(xNew, y));
 			
-			int[] yNew = Arrays.copyOf(y, y.length + 1);
-			yNew[y.length] = next;
-			this.assign(new WorkMessage(x, yNew));
-		}
+		// 	int[] yNew = Arrays.copyOf(y, y.length + 1);
+		// 	yNew[y.length] = next;
+		// 	this.assign(new WorkMessage(x, yNew));
+		// }
 	}
 }

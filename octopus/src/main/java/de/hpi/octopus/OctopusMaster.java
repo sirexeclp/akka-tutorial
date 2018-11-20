@@ -1,5 +1,11 @@
 package de.hpi.octopus;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Scanner;
 
 import com.typesafe.config.Config;
@@ -42,12 +48,31 @@ public class OctopusMaster extends OctopusSystem {
 			}
 		});
 		
-		final Scanner scanner = new Scanner(System.in);
-		String line = scanner.nextLine();
-		scanner.close();
+		// final Scanner scanner = new Scanner(System.in);
+		// String line = scanner.nextLine();
+		// scanner.close();
 		
-		int attributes = Integer.parseInt(line);
-		
-		system.actorSelection("/user/" + Profiler.DEFAULT_NAME).tell(new Profiler.TaskMessage(attributes), ActorRef.noSender());
+		//int attributes = Integer.parseInt(line);
+		String[] tmp;
+		try {
+			tmp = Files.readAllLines(Paths.get("students.csv")).toArray(new String[0]);
+			String []  lines = Arrays.copyOfRange(tmp, 1, tmp.length);
+			List<String> names = new ArrayList<>(42);
+			List<String> secrets = new ArrayList<>(42);
+			List<String> sequences = new ArrayList<>(42);
+			
+			for (String line : lines) {
+				String[] lineSplit = line.split(";");
+				names.add(lineSplit[1]);
+				secrets.add(lineSplit[2]);
+				sequences.add(lineSplit[3]);
+			}
+	
+			system.actorSelection("/user/" + Profiler.DEFAULT_NAME).tell(new Profiler.PasswordCrackingTaskMessage(secrets), ActorRef.noSender());
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
 	}
 }
