@@ -18,3 +18,5 @@ datasets/
 output/
 copyOctopus2Thor.sh
 copyAkkaTutorial2Thor.sh
+.vscode
+launch.json
