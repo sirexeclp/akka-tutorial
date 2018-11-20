@@ -13,7 +13,7 @@ import akka.actor.Props;
 import akka.actor.Terminated;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
-import de.hpi.octopus.actors.Worker.WorkMessage;
+import de.hpi.octopus.messages.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -200,7 +200,7 @@ public class Profiler extends AbstractActor {
 			this.log.error("The profiler actor can process only one task in its current implementation!");
 		
 		this.task = message;
-		this.assign(new  Worker.PasswordCrackingWorkMessage(message.secrets,0,1_000_000));
+		this.assign(new WorkMessage.PasswordCracking(message.secrets,0,1_000_000));
 	}
 	private void handle(PasswordCrackingCompletionMessage message) {
 		this.log.info("Completed: [{}]", message.getPasswords());

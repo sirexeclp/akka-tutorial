@@ -22,6 +22,7 @@ import akka.cluster.MemberStatus;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
 import de.hpi.octopus.OctopusMaster;
+import de.hpi.octopus.messages.WorkMessage;
 import de.hpi.octopus.actors.Profiler.CompletionMessage;
 import de.hpi.octopus.actors.Profiler.RegistrationMessage;
 import lombok.AllArgsConstructor;
@@ -47,87 +48,7 @@ public class Worker extends AbstractActor {
 	////////////////////
 	// Actor WorkMessages //
 	////////////////////
-	@Data
-	@SuppressWarnings("unused")
-	public abstract static class WorkMessage {
-		private final int rangeStart;
-		private final int rangeEnd;
-		public WorkMessage()
-		{
-		}
-		public WorkMessage(int rangeStart, int rangeEnd)
-		{
-			this.rangeStart = rangeStart;
-			this.rangeEnd = rangeEnd;
-		}
-	}
-	@Data
-	@SuppressWarnings("unused")
-	public static class PasswordCrackingWorkMessage extends WorkMessage implements Serializable {
-		private static final long serialVersionUID = -7643194361868862395L;
-		private final List<String> secrets;
-		public PasswordCrackingWorkMessage(List<String> secrets, int rangeStart, int rangeEnd)
-		{
-			super(rangeStart,rangeEnd);
-			this.secrets = secrets;
-		}
-		public PasswordCrackingWorkMessage()
-		{
-			super();
-		}
-	}
-	@Data
-	@SuppressWarnings("unused")
-	public static class GeneAnalysisWorkMessage extends WorkMessage implements Serializable {
-		private static final long serialVersionUID = -7643194361868862395L;
-		private final List<String> sequences;
-		public GeneAnalysisWorkMessage(List<String> sequences,int rangeStart,int rangeEnd) {
-
-
-			super(rangeStart,rangeEnd);
-			this.sequences = sequences;
-		}
-		public GeneAnalysisWorkMessage()
-		{
-			super();
-		}
-	}
-
-
-	@Data
-	@SuppressWarnings("unused")
-	public static class LinearCombinationWorkMessage extends WorkMessage implements Serializable {
-		private static final long serialVersionUID = -7643194361868862395L;
-		private final List<Integer> numbers;
-		public LinearCombinationWorkMessage(List<Integer> numbers,int rangeStart,int rangeEnd)
-		{
-			super(rangeStart,rangeEnd);
-			this.numbers = numbers;
-		}
-		public LinearCombinationWorkMessage()
-		{
-			super();
-		}
-	}
-	@Data
-	@SuppressWarnings("unused")
-	public static class HashMiningWorkMessage extends WorkMessage implements Serializable {
-		private static final long serialVersionUID = -7643194361868862395L;
-		private final List<Integer> partners;
-		private final List<Integer> prefixes;
-		private final int prefixLength;
-		public HashMiningWorkMessage(List<Integer> partners, List<Integer> prefixes, int prefixLength,int rangeStart,int rangeEnd)
-		{
-			super(rangeStart,rangeEnd);
-			this.partners = partners;
-			this.prefixes = prefixes;
-			this.prefixLength = prefixLength;
-		}
-		public HashMiningWorkMessage()
-		{
-			super();
-		}
-	}
+	
 
 	/////////////////
 	// Actor State //
@@ -159,19 +80,19 @@ public class Worker extends AbstractActor {
 		return receiveBuilder()
 				.match(CurrentClusterState.class, this::handle)
 				.match(MemberUp.class, this::handle)
-				.match(PasswordCrackingWorkMessage.class, this::unhash)
-				.match(GeneAnalysisWorkMessage.class, this::match)
-				.match(LinearCombinationWorkMessage.class, this::solve)
-				.match(HashMiningWorkMessage.class, this::encrypt)
+				.match(WorkMessage.PasswordCracking.class, this::unhash)
+				.match(WorkMessage.GeneAnalysis.class, this::match)
+				.match(WorkMessage.LinearCombination.class, this::solve)
+				.match(WorkMessage.HashMining.class, this::encrypt)
 				.matchAny(object -> this.log.info("Received unknown message: \"{}\"", object.toString())).build();
 	}
-	private void unhash(PasswordCrackingWorkMessage message) {
+	private void unhash(WorkMessage.PasswordCracking message) {
 		HashMap<String, Integer> rainbowTable = new HashMap<>();
 		for (int i = message.getRangeStart(); i < message.getRangeEnd(); i++) {
 			String tmp = this.hash(i);
 			rainbowTable.put(tmp, i);
 		}
-		List<Integer> passwords = message.secrets.stream()
+		List<Integer> passwords = message.getSecrets().stream()
 			.filter(x -> rainbowTable.containsKey(x))
 			.map(x -> rainbowTable.get(x))
 			.collect(Collectors.toList());
@@ -232,10 +153,10 @@ public class Worker extends AbstractActor {
         }
         return str1.substring(longestSubstringStart, longestSubstringStart + longestSubstringLength);
 	}
-	private void match(GeneAnalysisWorkMessage message) {
-		int[] partners = new int[message.sequences.size()];
-		for (int i = 0; i < message.sequences.size(); i++)
-			partners[i] = this.longestOverlapPartner(i, message.sequences);
+	private void match(WorkMessage.GeneAnalysis message) {
+		int[] partners = new int[message.getSequences().size()];
+		for (int i = 0; i < message.getSequences().size(); i++)
+			partners[i] = this.longestOverlapPartner(i, message.getSequences());
 				
 		this.log.info("done finding partners in Range " + message.getRangeStart() + "," + message.getRangeEnd());
 		this.sender().tell(new Profiler.GeneAnalysisCompletionMessage(CompletionMessage.Status.EXTENDABLE
@@ -248,7 +169,7 @@ public class Worker extends AbstractActor {
 			.map(index-> numbers.get(index)*prefixes[index])
 			.sum();
 	}
-	private void solve(LinearCombinationWorkMessage message) {
+	private void solve(WorkMessage.LinearCombination message) {
 		for (long a = message.getRangeStart(); a < message.getRangeEnd(); a++)
 		{	
 		String binary = Long.toBinaryString(a);
@@ -263,7 +184,7 @@ public class Worker extends AbstractActor {
 					prefixes[i] =-1;
 				i++;
 			}
-			if(this.sum(message.numbers, prefixes)==0)
+			if(this.sum(message.getNumbers(), prefixes)==0)
 			{
 				//sucess
 				this.log.info("done found linearcombination in Range " + message.getRangeStart() + "," + message.getRangeEnd());
@@ -277,12 +198,12 @@ public class Worker extends AbstractActor {
 			}
 		}
 	}
-	private List<String> encrypt(HashMiningWorkMessage message) {
+	private List<String> encrypt(WorkMessage.HashMining message) {
 		List<String> hashes = new ArrayList<>(message.getPartners().size());
 		for (int i = 0; i < message.getPartners().size(); i++) {
-			int partner = message.partners.get(i);
+			int partner = message.getPartners().get(i);
 			String prefix = (message.getPrefixes().get(i) > 0) ? "1" : "0";
-			hashes.add(this.findHash(partner, prefix, message.prefixLength));
+			hashes.add(this.findHash(partner, prefix, message.getPrefixLength()));
 		}
 		return hashes;
 	}
